@@ -1,30 +1,8 @@
+;; Randomized Rewards Contract
+;; Handles user participation and random reward distribution
 
-;; title: randomized-rewards
-;; version:
-;; summary:
-;; description:
-
-;; traits
-;;
-
-;; token definitions
-;;
-
-;; constants
-;;
-
-;; data vars
-;;
-
-;; data maps
-;;
-
-;; public functions
-;;
-
-;; read only functions
-;;
-
-;; private functions
-;;
-
+;; Constants
+(define-constant CONTRACT_OWNER tx-sender)
+(define-constant ERR_NOT_AUTHORIZED (err u100))
+(define-constant ERR_ALREADY_PARTICIPATED (err u101))
+(define-constant ERR_NO_PARTICIPANTS (err u102))
