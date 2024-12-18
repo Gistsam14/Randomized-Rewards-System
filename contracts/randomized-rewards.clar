@@ -23,3 +23,18 @@
         (map-set participants tx-sender true)
         (var-set participant-count (+ (var-get participant-count) u1))
         (ok true)))
+        
+(define-public (select-winner)
+    (let (
+        (count (var-get participant-count))
+        (block-hash (get-block-info? header-hash (- block-height u1)))
+        (random-seed (slice? (default-to 0x block-hash) u0 u16))
+        (winner-index (mod u1  count))
+    )
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (asserts! (> count u0) ERR_NO_PARTICIPANTS)
+        
+        (map-set winners { round: (var-get current-round) } 
+            (get-participant-at-index winner-index))
+        (var-set current-round (+ (var-get current-round) u1))
+        (ok true)))
