@@ -15,3 +15,11 @@
 ;; Data Variables
 (define-data-var current-round uint u0)
 (define-data-var participant-count uint u0)
+
+;; Public Functions
+(define-public (participate)
+    (let ((is-participant (default-to false (map-get? participants tx-sender))))
+        (asserts! (not is-participant) ERR_ALREADY_PARTICIPATED)
+        (map-set participants tx-sender true)
+        (var-set participant-count (+ (var-get participant-count) u1))
+        (ok true)))
