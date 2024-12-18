@@ -11,3 +11,7 @@
 ;; Data Maps
 (define-map participants principal bool)
 (define-map winners { round: uint } principal)
+
+;; Data Variables
+(define-data-var current-round uint u0)
+(define-data-var participant-count uint u0)
