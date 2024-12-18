@@ -38,3 +38,13 @@
             (get-participant-at-index winner-index))
         (var-set current-round (+ (var-get current-round) u1))
         (ok true)))
+
+;; Read-Only Functions
+(define-read-only (get-participant-count)
+    (var-get participant-count))
+
+(define-read-only (is-participant (user principal))
+    (default-to false (map-get? participants user)))
+
+(define-read-only (get-winner-for-round (round uint))
+    (map-get? winners { round: round }))
