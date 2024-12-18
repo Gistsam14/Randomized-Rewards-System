@@ -48,3 +48,28 @@
 
 (define-read-only (get-winner-for-round (round uint))
     (map-get? winners { round: round }))
+
+
+;; Internal Functions
+(define-private (map-get-participants)
+    (fold check-participant-map 
+        (get-principals)
+        (list)))
+
+(define-private (check-participant-map (participant principal) (acc (list 100 principal)))
+    (if (default-to false (map-get? participants participant))
+        (unwrap-panic (as-max-len? (append acc participant) u100))
+        acc))
+
+        
+(define-private (get-participant-at-index (index uint))
+    (default-to CONTRACT_OWNER 
+        (element-at (map-get-participants) index)))
+
+
+(define-private (get-principals)
+    (list 
+        ;; Add some test principals for development
+        'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+        'ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG
+        'ST2JHG361ZXG51QTKY2NQCVBPPRRE2KZB1HR05NNC))
