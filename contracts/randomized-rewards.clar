@@ -6,3 +6,8 @@
 (define-constant ERR_NOT_AUTHORIZED (err u100))
 (define-constant ERR_ALREADY_PARTICIPATED (err u101))
 (define-constant ERR_NO_PARTICIPANTS (err u102))
+
+
+;; Data Maps
+(define-map participants principal bool)
+(define-map winners { round: uint } principal)
