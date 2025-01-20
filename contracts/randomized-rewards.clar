@@ -139,3 +139,24 @@
 ;; Add read-only function to get wins
 (define-read-only (get-participant-wins (user principal))
     (default-to u0 (map-get? win-counts user)))
+
+
+
+;; Add new map for round details
+(define-map round-archives 
+    { round: uint } 
+    { winner: principal, 
+      participant-count: uint, 
+      timestamp: uint })
+
+;; Add function to archive round
+(define-private (archive-round (round uint) (winner principal))
+    (map-set round-archives
+        { round: round }
+        { winner: winner,
+          participant-count: (var-get participant-count),
+          timestamp: block-height }))
+
+;; Add read-only function to get round details
+(define-read-only (get-round-archive (round uint))
+    (map-get? round-archives { round: round }))
