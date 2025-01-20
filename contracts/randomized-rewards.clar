@@ -160,3 +160,23 @@
 ;; Add read-only function to get round details
 (define-read-only (get-round-archive (round uint))
     (map-get? round-archives { round: round }))
+
+
+
+
+;; Add new map and constants
+(define-map consecutive-rounds principal uint)
+(define-constant BONUS-THRESHOLD u5)
+(define-constant PARTICIPATION-BONUS u50)
+
+;; Add function to track and reward consecutive participation
+(define-private (update-consecutive-rounds (participant principal))
+    (let ((current-streak (default-to u0 (map-get? consecutive-rounds participant))))
+        (map-set consecutive-rounds participant (+ current-streak u1))
+        (if (>= current-streak BONUS-THRESHOLD)
+            (as-contract (stx-transfer? PARTICIPATION-BONUS CONTRACT_OWNER participant))
+            (ok true))))
+
+;; Add read-only function to check streak
+(define-read-only (get-participation-streak (user principal))
+    (default-to u0 (map-get? consecutive-rounds user)))
