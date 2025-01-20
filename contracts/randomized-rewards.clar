@@ -111,3 +111,18 @@
         (try! (stx-transfer? amount tx-sender (as-contract tx-sender)))
         (map-set staked-amounts tx-sender amount)
         (ok true)))
+
+
+
+;; Add new map
+(define-map referrals principal principal)
+(define-constant REFERRAL-BONUS u50)
+
+;; Add referral function
+(define-public (participate-with-referral (referrer principal))
+    (begin
+        (asserts! (not (is-eq tx-sender referrer)) (err u103))
+        (map-set referrals tx-sender referrer)
+        (try! (participate))
+        (try! (stx-transfer? REFERRAL-BONUS CONTRACT_OWNER referrer))
+        (ok true)))
