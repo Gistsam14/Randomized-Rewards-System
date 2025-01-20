@@ -126,3 +126,16 @@
         (try! (participate))
         (try! (stx-transfer? REFERRAL-BONUS CONTRACT_OWNER referrer))
         (ok true)))
+
+
+;; Add new map to track wins
+(define-map win-counts principal uint)
+
+;; Add function to increment wins
+(define-private (increment-winner-count (winner principal))
+    (let ((current-wins (default-to u0 (map-get? win-counts winner))))
+        (map-set win-counts winner (+ current-wins u1))))
+
+;; Add read-only function to get wins
+(define-read-only (get-participant-wins (user principal))
+    (default-to u0 (map-get? win-counts user)))
