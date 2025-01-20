@@ -10,10 +10,11 @@
 
 ;; Data Maps
 (define-map participants principal bool)
-(define-map winners { round: uint } principal)
+(define-map winners { round: uint, position: uint } principal)
 
 ;; Data Variables
 (define-data-var current-round uint u0)
+(define-data-var position uint u0)
 (define-data-var participant-count uint u0)
 
 ;; Public Functions
@@ -34,7 +35,7 @@
         (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
         (asserts! (> count u0) ERR_NO_PARTICIPANTS)
         
-        (map-set winners { round: (var-get current-round) } 
+        (map-set winners { round: (var-get current-round), position: (var-get position) } 
             (get-participant-at-index winner-index))
         (var-set current-round (+ (var-get current-round) u1))
         (ok true)))
@@ -47,7 +48,7 @@
     (default-to false (map-get? participants user)))
 
 (define-read-only (get-winner-for-round (round uint))
-    (map-get? winners { round: round }))
+    (map-get? winners { round: round, position: (var-get position) }))
 
 
 ;; Internal Functions
@@ -73,3 +74,19 @@
         'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
         'ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG
         'ST2JHG361ZXG51QTKY2NQCVBPPRRE2KZB1HR05NNC))
+
+
+;; Add with data variables
+(define-data-var winners-per-round uint u3)
+
+;; Modify winners map
+
+;; Add function to set winner count
+(define-public (set-winners-per-round (count uint))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (var-set winners-per-round count)
+        (ok true)))
+
+
+
