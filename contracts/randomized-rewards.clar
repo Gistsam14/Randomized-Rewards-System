@@ -100,3 +100,14 @@
         (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
         (var-set round-end-height (+ block-height ROUND_DURATION))
         (ok true)))
+
+
+;; Add new map
+(define-map staked-amounts principal uint)
+
+;; Add staking function
+(define-public (stake-tokens (amount uint))
+    (begin
+        (try! (stx-transfer? amount tx-sender (as-contract tx-sender)))
+        (map-set staked-amounts tx-sender amount)
+        (ok true)))
