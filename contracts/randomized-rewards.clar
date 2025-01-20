@@ -90,3 +90,13 @@
 
 
 
+;; Add with data variables
+(define-data-var round-end-height uint u0)
+(define-constant ROUND_DURATION u144) ;; ~1 day in blocks
+
+;; Add function to start new round
+(define-public (start-new-round)
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (var-set round-end-height (+ block-height ROUND_DURATION))
+        (ok true)))
