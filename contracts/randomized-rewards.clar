@@ -184,3 +184,140 @@
 
 
 
+;; Add new map for referral counts
+(define-map referral-counts principal uint)
+
+;; Add function to update referral counts
+(define-private (update-referral-count (referrer principal))
+    (let ((current-count (default-to u0 (map-get? referral-counts referrer))))
+        (map-set referral-counts referrer (+ current-count u1))))
+
+;; Add read-only function to get referral counts
+(define-read-only (get-referral-count (user principal))
+    (default-to u0 (map-get? referral-counts user)))
+
+
+        ;; Add function to reset participation streak
+    (define-public (reset-participation-streak (user principal))
+        (begin
+            (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+            (map-set consecutive-rounds user u0)
+            (ok true)))
+
+;; 1. Tiered Reward System
+(define-map user-tiers principal uint)
+(define-constant TIER-1-THRESHOLD u1000)
+(define-constant TIER-2-THRESHOLD u5000)
+(define-constant TIER-3-THRESHOLD u10000)
+
+(define-public (calculate-tier (user principal))
+    (let ((staked-amount (default-to u0 (map-get? staked-amounts user))))
+        (map-set user-tiers user 
+            (if (>= staked-amount TIER-3-THRESHOLD) 
+                u3
+                (if (>= staked-amount TIER-2-THRESHOLD)
+                    u2
+                    (if (>= staked-amount TIER-1-THRESHOLD)
+                        u1
+                        u0))))
+        (ok true)))
+
+(define-read-only (get-user-tier (user principal))
+    (default-to u0 (map-get? user-tiers user)))
+
+;; 2. Time-locked Rewards
+(define-map locked-rewards 
+    principal 
+    { amount: uint, unlock-height: uint })
+
+(define-public (lock-rewards (amount uint) (lock-period uint))
+    (begin
+        (asserts! (> amount u0) (err u104))
+        (map-set locked-rewards tx-sender
+            { amount: amount, 
+              unlock-height: (+ block-height lock-period) })
+        (ok true)))
+
+(define-read-only (get-locked-rewards (user principal))
+    (map-get? locked-rewards user))
+
+;; 3. Achievement System
+(define-map user-achievements 
+    principal 
+    { participation-count: uint,
+      wins: uint,
+      total-staked: uint })
+
+(define-public (update-achievements (user principal))
+    (let ((current-data (default-to 
+            { participation-count: u0, wins: u0, total-staked: u0 }
+            (map-get? user-achievements user))))
+        (map-set user-achievements user
+            { participation-count: (+ (get participation-count current-data) u1),
+              wins: (get-participant-wins user),
+              total-staked: (default-to u0 (map-get? staked-amounts user)) })
+        (ok true)))
+
+;; 4. Emergency Pause Mechanism
+(define-data-var contract-paused bool false)
+
+(define-public (toggle-pause)
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (var-set contract-paused (not (var-get contract-paused)))
+        (ok true)))
+
+(define-read-only (is-contract-paused)
+    (var-get contract-paused))
+
+;; 5. User Profile System
+(define-map user-profiles
+    principal
+    { username: (string-ascii 50),
+      join-height: uint,
+      last-active: uint })
+
+(define-public (create-profile (username (string-ascii 50)))
+    (begin
+        (map-set user-profiles tx-sender
+            { username: username,
+              join-height: block-height,
+              last-active: block-height })
+        (ok true)))
+
+(define-read-only (get-user-profile (user principal))
+    (map-get? user-profiles user))
+
+;; 6. Token Burning Mechanism
+(define-data-var total-burned uint u0)
+
+(define-public (burn-tokens (amount uint))
+    (begin
+        (try! (stx-transfer? amount tx-sender (as-contract tx-sender)))
+        (var-set total-burned (+ (var-get total-burned) amount))
+        (ok true)))
+
+(define-read-only (get-total-burned)
+    (var-get total-burned))
+
+;; 7. Reward Distribution Queue
+(define-map reward-queue uint 
+    { recipient: principal,
+      amount: uint,
+      processed: bool })
+(define-data-var queue-index uint u0)
+
+(define-public (queue-reward (recipient principal) (amount uint))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (map-set reward-queue (var-get queue-index)
+            { recipient: recipient,
+              amount: amount,
+              processed: false })
+        (var-set queue-index (+ (var-get queue-index) u1))
+        (ok true)))
+
+(define-read-only (get-queued-reward (index uint))
+    (map-get? reward-queue index))
+
+
