@@ -180,3 +180,7 @@
 ;; Add read-only function to check streak
 (define-read-only (get-participation-streak (user principal))
     (default-to u0 (map-get? consecutive-rounds user)))
+
+
+
+
