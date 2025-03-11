@@ -320,4 +320,128 @@
 (define-read-only (get-queued-reward (index uint))
     (map-get? reward-queue index))
 
+;; 1. Daily Login Rewards System
+(define-map daily-login-tracker 
+    principal 
+    { last-login: uint,
+      consecutive-days: uint })
+(define-constant DAILY-REWARD-AMOUNT u10)
+(define-constant BLOCKS-PER-DAY u144)
+
+(define-public (claim-daily-reward)
+    (let (
+        (last-login (default-to { last-login: u0, consecutive-days: u0 }
+                    (map-get? daily-login-tracker tx-sender)))
+        (current-block block-height)
+    )
+        (asserts! (>= (- current-block (get last-login last-login)) BLOCKS-PER-DAY) 
+            (err u201))
+        (map-set daily-login-tracker tx-sender
+            { last-login: current-block,
+              consecutive-days: (+ (get consecutive-days last-login) u1) })
+        (as-contract (stx-transfer? DAILY-REWARD-AMOUNT CONTRACT_OWNER tx-sender))))
+
+;; 2. User Blacklist System
+(define-map blacklisted-users principal bool)
+(define-constant ERR_BLACKLISTED (err u202))
+
+(define-public (blacklist-user (user principal))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (map-set blacklisted-users user true)
+        (ok true)))
+
+(define-public (remove-from-blacklist (user principal))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (map-delete blacklisted-users user)
+        (ok true)))
+
+(define-read-only (is-blacklisted (user principal))
+    (default-to false (map-get? blacklisted-users user)))
+
+;; 3. Multi-Token Support
+(define-map supported-tokens 
+    { token-id: uint } 
+    { enabled: bool, reward-multiplier: uint })
+
+(define-public (add-supported-token (token-id uint) (multiplier uint))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (map-set supported-tokens 
+            { token-id: token-id }
+            { enabled: true, reward-multiplier: multiplier })
+        (ok true)))
+
+(define-read-only (is-token-supported (token-id uint))
+    (default-to 
+        { enabled: false, reward-multiplier: u0 }
+        (map-get? supported-tokens { token-id: token-id })))
+
+;; 4. Reward Multiplier System
+(define-map user-multipliers principal uint)
+(define-constant BASE-MULTIPLIER u100)
+(define-constant MAX-MULTIPLIER u500)
+
+(define-public (set-user-multiplier (user principal) (multiplier uint))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (asserts! (<= multiplier MAX-MULTIPLIER) (err u203))
+        (map-set user-multipliers user multiplier)
+        (ok true)))
+
+(define-read-only (get-user-multiplier (user principal))
+    (default-to BASE-MULTIPLIER (map-get? user-multipliers user)))
+
+;; 5. User Statistics Tracking
+(define-map user-statistics
+    principal
+    { total-rewards: uint,
+      participation-rate: uint,
+      last-active-round: uint })
+
+(define-public (update-user-stats (user principal) (reward uint))
+    (let ((current-stats (default-to 
+            { total-rewards: u0, participation-rate: u0, last-active-round: u0 }
+            (map-get? user-statistics user))))
+        (map-set user-statistics user
+            { total-rewards: (+ (get total-rewards current-stats) reward),
+              participation-rate: (+ (get participation-rate current-stats) u1),
+              last-active-round: (var-get current-round) })
+        (ok true)))
+
+;; 6. Lottery System
+(define-map lottery-tickets principal uint)
+(define-data-var lottery-pool uint u0)
+(define-data-var lottery-round uint u0)
+(define-constant TICKET-PRICE u10)
+
+(define-public (buy-lottery-tickets (ticket-count uint))
+    (let ((total-cost (* TICKET-PRICE ticket-count)))
+        (try! (stx-transfer? total-cost tx-sender (as-contract tx-sender)))
+        (map-set lottery-tickets tx-sender 
+            (+ (default-to u0 (map-get? lottery-tickets tx-sender)) ticket-count))
+        (var-set lottery-pool (+ (var-get lottery-pool) total-cost))
+        (ok true)))
+
+(define-public (draw-lottery)
+    (let (
+        (winner (get-random-ticket-holder))
+        (prize (var-get lottery-pool))
+    )
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (try! (as-contract (stx-transfer? prize CONTRACT_OWNER winner)))
+        (var-set lottery-pool u0)
+        (var-set lottery-round (+ (var-get lottery-round) u1))
+        (ok true)))
+
+(define-private (get-random-ticket-holder)
+    (default-to CONTRACT_OWNER 
+        (element-at (map-get-participants) 
+            (mod u1 (var-get participant-count)))))
+
+(define-read-only (get-lottery-info)
+    { pool: (var-get lottery-pool),
+      round: (var-get lottery-round) })
+
 
