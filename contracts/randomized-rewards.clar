@@ -445,3 +445,247 @@
       round: (var-get lottery-round) })
 
 
+(define-map vip-members principal 
+    { status: bool, expiry: uint, tier: uint })
+(define-constant VIP-COST u1000)
+(define-constant VIP-DURATION u4320) 
+
+(define-public (purchase-vip-membership (tier uint))
+    (let ((cost (* VIP-COST tier)))
+        (try! (stx-transfer? cost tx-sender (as-contract tx-sender)))
+        (map-set vip-members tx-sender 
+            { status: true, 
+              expiry: (+ block-height VIP-DURATION), 
+              tier: tier })
+        (ok true)))
+
+(define-read-only (is-vip (user principal))
+    (let ((member-data (default-to 
+            { status: false, expiry: u0, tier: u0 } 
+            (map-get? vip-members user))))
+        (and 
+            (get status member-data)
+            (< block-height (get expiry member-data)))))
+
+(define-read-only (get-vip-tier (user principal))
+    (let ((member-data (default-to 
+            { status: false, expiry: u0, tier: u0 } 
+            (map-get? vip-members user))))
+        (get tier member-data)))
+
+
+
+(define-data-var boost-active bool false)
+(define-data-var boost-multiplier uint u100)
+(define-data-var boost-end-height uint u0)
+
+(define-public (start-boost-event (multiplier uint) (duration uint))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (var-set boost-active true)
+        (var-set boost-multiplier multiplier)
+        (var-set boost-end-height (+ block-height duration))
+        (ok true)))
+
+(define-public (end-boost-event)
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (var-set boost-active false)
+        (ok true)))
+
+(define-read-only (get-current-boost)
+    (if (and 
+            (var-get boost-active)
+            (< block-height (var-get boost-end-height)))
+        (var-get boost-multiplier)
+        u100))
+
+
+(define-map teams uint { name: (string-ascii 50), score: uint })
+(define-map user-teams principal uint)
+(define-data-var team-count uint u4)
+
+(define-public (create-team (team-id uint) (team-name (string-ascii 50)))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (map-set teams team-id { name: team-name, score: u0 })
+        (var-set team-count (+ (var-get team-count) u1))
+        (ok true)))
+
+(define-public (join-team (team-id uint))
+    (begin
+        (asserts! (< team-id (var-get team-count)) (err u301))
+        (map-set user-teams tx-sender team-id)
+        (ok true)))
+
+(define-public (add-team-points (team-id uint) (points uint))
+    (let ((team-data (default-to { name: "", score: u0 } (map-get? teams team-id))))
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (map-set teams team-id 
+            { name: (get name team-data), 
+              score: (+ (get score team-data) points) })
+        (ok true)))
+
+(define-read-only (get-team-score (team-id uint))
+    (let ((team-data (default-to { name: "", score: u0 } (map-get? teams team-id))))
+        (get score team-data)))
+
+(define-read-only (get-user-team (user principal))
+    (default-to u0 (map-get? user-teams user)))
+
+
+
+(define-map pending-rewards principal uint)
+(define-constant ERR_NO_REWARDS (err u401))
+
+(define-public (add-pending-reward (user principal) (amount uint))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (map-set pending-rewards user 
+            (+ (default-to u0 (map-get? pending-rewards user)) amount))
+        (ok true)))
+
+(define-public (claim-rewards)
+    (let ((reward-amount (default-to u0 (map-get? pending-rewards tx-sender))))
+        (asserts! (> reward-amount u0) ERR_NO_REWARDS)
+        (try! (as-contract (stx-transfer? reward-amount CONTRACT_OWNER tx-sender)))
+        (map-delete pending-rewards tx-sender)
+        (ok reward-amount)))
+
+(define-read-only (get-pending-rewards (user principal))
+    (default-to u0 (map-get? pending-rewards user)))
+
+
+
+(define-data-var current-season uint u1)
+(define-data-var season-end-height uint u0)
+(define-constant SEASON_DURATION u12960)
+
+(define-map seasonal-points { season: uint, user: principal } uint)
+(define-map season-rewards uint { bronze: uint, ssilver: uint, gold: uint })
+
+(define-public (start-new-season)
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (var-set current-season (+ (var-get current-season) u1))
+        (var-set season-end-height (+ block-height SEASON_DURATION))
+        (ok true)))
+
+(define-public (add-season-points (user principal) (points uint))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (map-set seasonal-points 
+            { season: (var-get current-season), user: user }
+            (+ (default-to u0 (map-get? seasonal-points 
+                { season: (var-get current-season), user: user })) points))
+        (ok true)))
+
+
+
+(define-read-only (get-season-points (user principal))
+    (default-to u0 (map-get? seasonal-points 
+        { season: (var-get current-season), user: user })))
+
+(define-read-only (get-current-season-info)
+    { season: (var-get current-season),
+      end-height: (var-get season-end-height) })
+
+
+
+(define-map referral-tiers principal uint)
+(define-constant TIER-1-REFERRALS u5)
+(define-constant TIER-2-REFERRALS u15)
+(define-constant TIER-3-REFERRALS u30)
+
+(define-public (update-referral-tier (user principal))
+    (let ((ref-count (get-referral-count user)))
+        (map-set referral-tiers user 
+            (if (>= ref-count TIER-3-REFERRALS)
+                u3
+                (if (>= ref-count TIER-2-REFERRALS)
+                    u2
+                    (if (>= ref-count TIER-1-REFERRALS)
+                        u1
+                        u0))))
+        (ok true)))
+
+(define-read-only (get-referral-tier (user principal))
+    (default-to u0 (map-get? referral-tiers user)))
+
+(define-read-only (get-referral-bonus (user principal))
+    (let ((tier (get-referral-tier user)))
+        (* REFERRAL-BONUS 
+            (if (is-eq tier u3)
+                u3
+                (if (is-eq tier u2)
+                    u2
+                    (if (is-eq tier u1)
+                        u1
+                        u1))))))
+
+
+
+(define-map proposals uint 
+    { title: (string-ascii 100),
+      active: bool,
+      yes-votes: uint,
+      no-votes: uint,
+      end-height: uint })
+(define-map user-votes { proposal-id: uint, user: principal } bool)
+(define-data-var proposal-count uint u0)
+
+(define-public (create-proposal (title (string-ascii 100)) (duration uint))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (map-set proposals (var-get proposal-count)
+            { title: title,
+              active: true,
+              yes-votes: u0,
+              no-votes: u0,
+              end-height: (+ block-height duration) })
+        (var-set proposal-count (+ (var-get proposal-count) u1))
+        (ok (- (var-get proposal-count) u1))))
+
+(define-public (vote-on-proposal (proposal-id uint) (vote bool))
+    (let ((proposal (default-to 
+            { title: "", active: false, yes-votes: u0, no-votes: u0, end-height: u0 }
+            (map-get? proposals proposal-id))))
+        (asserts! (get active proposal) (err u501))
+        (asserts! (< block-height (get end-height proposal)) (err u502))
+        (asserts! (not (default-to false (map-get? user-votes 
+            { proposal-id: proposal-id, user: tx-sender }))) (err u503))
+        
+        (map-set user-votes { proposal-id: proposal-id, user: tx-sender } true)
+        (map-set proposals proposal-id
+            (if vote
+                { title: (get title proposal),
+                  active: (get active proposal),
+                  yes-votes: (+ (get yes-votes proposal) u1),
+                  no-votes: (get no-votes proposal),
+                  end-height: (get end-height proposal) }
+                { title: (get title proposal),
+                  active: (get active proposal),
+                  yes-votes: (get yes-votes proposal),
+                  no-votes: (+ (get no-votes proposal) u1),
+                  end-height: (get end-height proposal) }))
+        (ok true)))
+
+(define-public (close-proposal (proposal-id uint))
+    (let ((proposal (default-to 
+            { title: "", active: false, yes-votes: u0, no-votes: u0, end-height: u0 }
+            (map-get? proposals proposal-id))))
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (asserts! (get active proposal) (err u504))
+        (map-set proposals proposal-id
+            { title: (get title proposal),
+              active: false,
+              yes-votes: (get yes-votes proposal),
+              no-votes: (get no-votes proposal),
+              end-height: (get end-height proposal) })
+        (ok true)))
+
+(define-read-only (get-proposal (proposal-id uint))
+    (map-get? proposals proposal-id))
+
+(define-read-only (has-voted (proposal-id uint) (user principal))
+    (default-to false (map-get? user-votes { proposal-id: proposal-id, user: user })))
