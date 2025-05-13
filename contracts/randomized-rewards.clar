@@ -690,3 +690,68 @@
 
 (define-read-only (has-voted (proposal-id uint) (user principal))
     (default-to false (map-get? user-votes { proposal-id: proposal-id, user: user })))
+
+
+
+(define-map reward-pools 
+    uint 
+    { base-amount: uint,
+      start-height: uint,
+      end-height: uint,
+      multiplier: uint,
+      active: bool })
+
+(define-data-var pool-counter uint u0)
+
+(define-public (create-reward-pool 
+    (base-amount uint)
+    (duration uint)
+    (multiplier uint))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (map-set reward-pools (var-get pool-counter)
+            { base-amount: base-amount,
+              start-height: block-height,
+              end-height: (+ block-height duration),
+              multiplier: multiplier,
+              active: true })
+        (var-set pool-counter (+ (var-get pool-counter) u1))
+        (ok (- (var-get pool-counter) u1))))
+
+(define-read-only (get-pool-reward (pool-id uint))
+    (let ((pool (unwrap! (map-get? reward-pools pool-id) (ok u0))))
+        (if (and 
+            (get active pool)
+            (>= block-height (get start-height pool))
+            (<= block-height (get end-height pool)))
+            (ok (* (get base-amount pool) (get multiplier pool)))
+            (ok (get base-amount pool)))))
+    
+
+
+(define-map power-ups
+    principal
+    { boost: uint,
+      duration: uint,
+      active-height: uint })
+
+(define-constant POWERUP-BASIC u150)
+(define-constant POWERUP-RARE u200)
+(define-constant POWERUP-EPIC u300)
+
+(define-public (grant-power-up (recipient principal) (boost-type uint))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+        (map-set power-ups recipient
+            { boost: boost-type,
+              duration: u144,
+              active-height: block-height })
+        (ok true)))
+
+(define-read-only (get-active-power-up (user principal))
+    (let ((power-up (default-to
+            { boost: u100, duration: u0, active-height: u0 }
+            (map-get? power-ups user))))
+        (if (< (+ (get active-height power-up) (get duration power-up)) block-height)
+            u100
+            (get boost power-up))))
