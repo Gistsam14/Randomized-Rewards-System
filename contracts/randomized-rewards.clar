@@ -233,6 +233,7 @@
 (define-public (lock-rewards (amount uint) (lock-period uint))
     (begin
         (asserts! (> amount u0) (err u104))
+        (asserts! (> lock-period u0) (err u104))
         (map-set locked-rewards tx-sender
             { amount: amount, 
               unlock-height: (+ block-height lock-period) })
