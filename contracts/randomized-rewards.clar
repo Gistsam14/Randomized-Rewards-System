@@ -755,3 +755,16 @@
         (if (< (+ (get active-height power-up) (get duration power-up)) block-height)
             u100
             (get boost power-up))))
+
+
+;; (define-public (select-winner-with-dynamic-pool)
+;;     (let (
+;;         (count (var-get participant-count))
+;;         (winner-index (mod u1 count))
+;;         (selected-winner (get-participant-at-index winner-index))
+;;     )
+;;         (asserts! (is-eq tx-sender CONTRACT_OWNER) ERR_NOT_AUTHORIZED)
+;;         (asserts! (> count u0) ERR_NO_PARTICIPANTS)
+;;         (map-set winners { round: (var-get current-round), position: (var-get position) } selected-winner)
+;;         (var-set current-round (+ (var-get current-round) u1))
+;;         (contract-call? .dynamic-prize-pool )))

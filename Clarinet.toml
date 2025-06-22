@@ -5,6 +5,11 @@ authors = []
 telemetry = true
 cache_dir = '.\.cache'
 requirements = []
+[contracts.dynamic-prize-pool]
+path = 'contracts/dynamic-prize-pool.clar'
+clarity_version = 3
+epoch = 3.1
+
 [contracts.randomized-rewards]
 path = 'contracts/randomized-rewards.clar'
 clarity_version = 2
