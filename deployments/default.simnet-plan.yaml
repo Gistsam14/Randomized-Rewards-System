@@ -52,6 +52,29 @@ plan:
         - emulated-contract-publish:
             contract-name: randomized-rewards
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: contracts/randomized-rewards.clar
+            path: "contracts\\randomized-rewards.clar"
+            clarity-version: 2
+        - emulated-contract-publish:
+            contract-name: utils
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\utils.clar"
             clarity-version: 2
       epoch: "2.5"
+    - id: 1
+      transactions:
+        - emulated-contract-publish:
+            contract-name: achievement-nft
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\achievement-nft.clar"
+            clarity-version: 3
+        - emulated-contract-publish:
+            contract-name: dynamic-prize-pool
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\dynamic-prize-pool.clar"
+            clarity-version: 3
+        - emulated-contract-publish:
+            contract-name: dynamic-quest-system
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\dynamic-quest-system.clar"
+            clarity-version: 3
+      epoch: "3.1"
