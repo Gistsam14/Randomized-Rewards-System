@@ -29,6 +29,11 @@ epoch = 2.5
 path = 'contracts/utils.clar'
 clarity_version = 2
 epoch = 2.5
+
+[contracts.social-media-rewards]
+path = 'contracts/social-media-rewards.clar'
+clarity_version = 3
+epoch = 3.1
 [repl.analysis]
 passes = ['check_checker']
 
